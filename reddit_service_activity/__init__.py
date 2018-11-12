@@ -14,7 +14,7 @@ from baseplate import (
     tracing_client_from_config,
 )
 from baseplate.context.redis import RedisContextFactory
-from baseplate.integration.thrift import baseplateify_processor
+from baseplate.integration.thrift import BaseplateProcessorEventHandler
 
 from .activity_thrift import ActivityService, ttypes
 from .counter import ActivityCounter
@@ -48,7 +48,7 @@ class ActivityInfo(ttypes.ActivityInfo):
         )
 
 
-class Handler(ActivityService.Iface):
+class Handler(ActivityService.ContextIface):
     def __init__(self, counter):
         self.counter = counter
 
@@ -142,5 +142,8 @@ def make_processor(app_config):  # pragma: nocover
 
     counter = ActivityCounter(cfg.activity.window.total_seconds())
     handler = Handler(counter=counter)
-    processor = ActivityService.Processor(handler)
-    return baseplateify_processor(processor, logger, baseplate)
+    processor = ActivityService.ContextProcessor(handler)
+    event_handler = BaseplateProcessorEventHandler(logger, baseplate)
+    processor.setEventHandler(event_handler)
+
+    return processor
