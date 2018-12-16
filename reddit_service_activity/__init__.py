@@ -80,7 +80,7 @@ class Handler(ActivityService.ContextIface):
         for context_id, cached_value in zip(context_ids, cached_info):
             if cached_value is None:
                 continue
-            activity[context_id] = ActivityInfo.from_json(cached_value.decode())
+            activity[context_id] = ActivityInfo.from_json(cached_value)
 
         # count any ones that were not cached
         missing_ids = [id_ for id_ in context_ids if id_ not in activity]
@@ -102,7 +102,7 @@ class Handler(ActivityService.ContextIface):
 
         if to_cache:
             with context.redis.pipeline("cache", transaction=False) as pipe:
-                for context_id, info in to_cache.items():
+                for context_id, info in list(to_cache.items()):
                     pipe.setex(context_id + "/cached", _CACHE_TIME, info.to_json())
                 pipe.execute()
 
