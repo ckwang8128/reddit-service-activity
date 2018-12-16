@@ -14,25 +14,24 @@ RUN apt-get update && \
         fbthrift-compiler
 
 WORKDIR /opt/activity
-COPY ./requirements.txt ./test-requirements.txt /opt/activity/
+COPY ./requirements.txt ./test-requirements.txt ./Makefile /opt/activity/
 
 # Set up Virtualenv
+ENV VENV_PATH=/opt/venvs/activity
+ENV WHEELHOUSE_INDEX=https://reddit-wheels.s3.amazonaws.com/index.html
 RUN mkdir /opt/venvs && \
-    virtualenv -p python3 /opt/venvs/activity
+    virtualenv -p python3 $VENV_PATH
 
-# upgrade pip
-# Install requirements in virtualenv
-RUN /opt/venvs/activity/bin/pip install --no-index --find-links https://reddit-wheels.s3.amazonaws.com/index.html --upgrade pip && \
-    /opt/venvs/activity/bin/pip install --pre --no-index --find-links https://reddit-wheels.s3.amazonaws.com/index.html -r requirements.txt && \
-     /opt/venvs/activity/bin/pip install --pre --no-index --find-links https://reddit-wheels.s3.amazonaws.com/index.html -r test-requirements.txt
+# Upgrade pip and install dependencies here for layer-caching.
+RUN $VENV_PATH/bin/pip install --no-index --find-links $WHEELHOUSE_INDEX  --upgrade pip && \
+    . $VENV_PATH/bin/activate && \
+    make dependencies && \
+    make test-dependencies
 
 # Link rest of source code
 ADD . /opt/activity
 
 # Build and setup python project
-RUN . /opt/venvs/activity/bin/activate && /usr/bin/make thrift && \
-    /opt/venvs/activity/bin/python setup.py develop --no-deps
+RUN . $VENV_PATH/bin/activate && /usr/bin/make setup
 
-CMD  /opt/venvs/websockets/bin/python setup.py develop && \
-    /opt/venvs/websockets/bin/python setup.py build && \
-    /opt/venvs/activity/bin/baseplate-serve --debug --bind 0.0.0.0:9090 --reload example.ini
+CMD $VENV_PATH/bin/baseplate-serve --debug --bind 0.0.0.0:9090 --reload example.ini
